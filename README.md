@@ -1,12 +1,14 @@
-# React + Vite
+# 🌦️ WeatherVue – Real-Time Weather App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**WeatherVue** is a beautifully animated, real-time weather forecasting web app built with **React** and **Tailwind CSS**.  
+It allows users to search for any city worldwide and get the latest weather conditions with live temperature, humidity, wind speed, sunrise/sunset times, and dynamic icons — all wrapped in a responsive and visually engaging UI.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Features
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- 🔍 **City Search** – Get weather by entering any city name  
+- 📊 **Live Weather Data** – Temperature, humidity, wind speed, etc.  
+- 🌅 **Sunrise & Sunset Timings**  
+- ☁️ **Dynamic Icons** – Based on weather conditions  
+- 📱 **Responsive Design** – Looks great on all screen sizes  

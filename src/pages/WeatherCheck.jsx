@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   WiDaySunny,
   WiCloudy,
@@ -9,58 +9,454 @@ import {
   WiHumidity,
   WiSunrise,
   WiSunset,
+  WiFog,
+  WiDayHaze,
 } from "react-icons/wi";
 import { IoLocationSharp, IoSearchSharp } from "react-icons/io5";
 
-// Weather icons configuration
-const weatherIcons = [
-  { icon: WiDaySunny, color: "text-yellow-400", condition: "Clear" },
-  { icon: WiCloudy, color: "text-gray-300", condition: "Clouds" },
-  { icon: WiRain, color: "text-blue-400", condition: "Rain" },
-  { icon: WiSnow, color: "text-blue-100", condition: "Snow" },
-  { icon: WiThunderstorm, color: "text-purple-400", condition: "Thunderstorm" },
-];
+// ─── Weather theme configs ────────────────────────────────────────────────────
+const WEATHER_THEMES = {
+  Clear: {
+    bg: "from-[#0f2942] via-[#1a4a7a] to-[#f97316]",
+    accent: "#fbbf24",
+    accentText: "text-amber-300",
+    particle: "sun",
+    label: "Clear Skies",
+  },
+  Clouds: {
+    bg: "from-[#1e2a3a] via-[#3d5166] to-[#6b7f94]",
+    accent: "#94a3b8",
+    accentText: "text-slate-300",
+    particle: "cloud",
+    label: "Overcast",
+  },
+  Rain: {
+    bg: "from-[#0d1b2a] via-[#1a3349] to-[#2c4e6e]",
+    accent: "#60a5fa",
+    accentText: "text-blue-300",
+    particle: "rain",
+    label: "Rainy",
+  },
+  Drizzle: {
+    bg: "from-[#0d1b2a] via-[#1a3349] to-[#2c4e6e]",
+    accent: "#93c5fd",
+    accentText: "text-blue-200",
+    particle: "drizzle",
+    label: "Drizzly",
+  },
+  Snow: {
+    bg: "from-[#1a2740] via-[#2d3f5a] to-[#8ba7c2]",
+    accent: "#e0f2fe",
+    accentText: "text-sky-100",
+    particle: "snow",
+    label: "Snowing",
+  },
+  Thunderstorm: {
+    bg: "from-[#0a0a14] via-[#1a1a2e] to-[#2d1b4e]",
+    accent: "#a78bfa",
+    accentText: "text-violet-300",
+    particle: "storm",
+    label: "Thunderstorm",
+  },
+  Mist: {
+    bg: "from-[#1a2033] via-[#2d3a4a] to-[#5a6a7a]",
+    accent: "#cbd5e1",
+    accentText: "text-slate-200",
+    particle: "fog",
+    label: "Misty",
+  },
+  Fog: {
+    bg: "from-[#1a2033] via-[#2d3a4a] to-[#5a6a7a]",
+    accent: "#cbd5e1",
+    accentText: "text-slate-200",
+    particle: "fog",
+    label: "Foggy",
+  },
+  Haze: {
+    bg: "from-[#2a1f0f] via-[#3d3020] to-[#7a6040]",
+    accent: "#fcd34d",
+    accentText: "text-yellow-200",
+    particle: "haze",
+    label: "Hazy",
+  },
+};
 
+const getTheme = (condition) =>
+  WEATHER_THEMES[condition] || WEATHER_THEMES["Clear"];
+
+// ─── Particle Canvas ──────────────────────────────────────────────────────────
+const ParticleCanvas = ({ condition }) => {
+  const canvasRef = useRef(null);
+  const particlesRef = useRef([]);
+  const animRef = useRef(null);
+  const lightningRef = useRef({ active: false, opacity: 0, timer: 0 });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const W = () => canvas.width;
+    const H = () => canvas.height;
+
+    // Build particles per condition
+    const buildParticles = () => {
+      particlesRef.current = [];
+      if (condition === "Clear") {
+        // Sun rays
+        for (let i = 0; i < 8; i++) {
+          particlesRef.current.push({
+            type: "ray",
+            angle: (i / 8) * Math.PI * 2,
+            len: 60 + Math.random() * 40,
+            speed: 0.002 + Math.random() * 0.002,
+            opacity: 0.15 + Math.random() * 0.1,
+          });
+        }
+        // Floating sparkles
+        for (let i = 0; i < 60; i++) {
+          particlesRef.current.push({
+            type: "sparkle",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            size: 1 + Math.random() * 2,
+            speed: 0.2 + Math.random() * 0.3,
+            drift: (Math.random() - 0.5) * 0.3,
+            opacity: Math.random() * 0.6 + 0.2,
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+      } else if (condition === "Rain" || condition === "Drizzle") {
+        const count = condition === "Rain" ? 180 : 90;
+        for (let i = 0; i < count; i++) {
+          particlesRef.current.push({
+            type: "raindrop",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            len: condition === "Rain" ? 15 + Math.random() * 20 : 8 + Math.random() * 10,
+            speed: condition === "Rain" ? 8 + Math.random() * 6 : 4 + Math.random() * 3,
+            opacity: 0.3 + Math.random() * 0.4,
+            width: condition === "Rain" ? 1.5 : 0.8,
+          });
+        }
+      } else if (condition === "Snow") {
+        for (let i = 0; i < 120; i++) {
+          particlesRef.current.push({
+            type: "snowflake",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            size: 2 + Math.random() * 5,
+            speed: 0.5 + Math.random() * 1.5,
+            drift: (Math.random() - 0.5) * 0.8,
+            opacity: 0.5 + Math.random() * 0.5,
+            phase: Math.random() * Math.PI * 2,
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.02,
+          });
+        }
+      } else if (condition === "Thunderstorm") {
+        // Rain + lightning
+        for (let i = 0; i < 200; i++) {
+          particlesRef.current.push({
+            type: "raindrop",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            len: 20 + Math.random() * 25,
+            speed: 12 + Math.random() * 8,
+            opacity: 0.4 + Math.random() * 0.4,
+            width: 1.5,
+          });
+        }
+      } else if (condition === "Clouds") {
+        for (let i = 0; i < 30; i++) {
+          particlesRef.current.push({
+            type: "mote",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            size: 1 + Math.random() * 2,
+            speed: 0.1 + Math.random() * 0.2,
+            opacity: Math.random() * 0.3 + 0.1,
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+      } else if (condition === "Mist" || condition === "Fog") {
+        for (let i = 0; i < 50; i++) {
+          particlesRef.current.push({
+            type: "mist",
+            x: Math.random() * W(),
+            y: 0.3 * H() + Math.random() * 0.6 * H(),
+            radius: 60 + Math.random() * 120,
+            speed: 0.1 + Math.random() * 0.2,
+            opacity: 0.03 + Math.random() * 0.06,
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+      } else if (condition === "Haze") {
+        for (let i = 0; i < 40; i++) {
+          particlesRef.current.push({
+            type: "haze",
+            x: Math.random() * W(),
+            y: Math.random() * H(),
+            radius: 80 + Math.random() * 160,
+            speed: 0.05 + Math.random() * 0.1,
+            opacity: 0.02 + Math.random() * 0.04,
+            phase: Math.random() * Math.PI * 2,
+          });
+        }
+      }
+    };
+
+    buildParticles();
+
+    // Lightning state
+    let lightningTimer = 0;
+    const triggerLightning = () => {
+      lightningRef.current = { active: true, opacity: 1, timer: 0 };
+    };
+
+    const drawLightning = (ctx, W, H) => {
+      const startX = W * 0.3 + Math.random() * W * 0.4;
+      const startY = 0;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      let x = startX;
+      let y = startY;
+      const segments = 8 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < segments; i++) {
+        x += (Math.random() - 0.5) * 80;
+        y += H / segments;
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(220, 200, 255, ${lightningRef.current.opacity})`;
+      ctx.lineWidth = 2 + Math.random() * 2;
+      ctx.shadowColor = "rgba(200, 180, 255, 0.8)";
+      ctx.shadowBlur = 20;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+
+    let t = 0;
+    const animate = () => {
+      ctx.clearRect(0, 0, W(), H());
+      t += 1;
+
+      // Sun halo for Clear
+      if (condition === "Clear") {
+        const cx = W() * 0.78, cy = H() * 0.15;
+        const pulse = 1 + 0.04 * Math.sin(t * 0.025);
+        // Outer glow
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 160 * pulse);
+        grad.addColorStop(0, "rgba(255,200,50,0.18)");
+        grad.addColorStop(0.5, "rgba(255,160,30,0.07)");
+        grad.addColorStop(1, "rgba(255,120,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 160 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        // Sun disc
+        const discGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40);
+        discGrad.addColorStop(0, "rgba(255,235,100,0.55)");
+        discGrad.addColorStop(1, "rgba(255,180,30,0)");
+        ctx.fillStyle = discGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Thunder lightning
+      if (condition === "Thunderstorm") {
+        lightningTimer++;
+        const interval = 90 + Math.random() * 120;
+        if (lightningTimer > interval) {
+          triggerLightning();
+          lightningTimer = 0;
+        }
+        if (lightningRef.current.active) {
+          drawLightning(ctx, W(), H());
+          lightningRef.current.opacity -= 0.07;
+          if (lightningRef.current.opacity <= 0) lightningRef.current.active = false;
+        }
+      }
+
+      // Particles
+      particlesRef.current.forEach((p) => {
+        if (p.type === "raindrop") {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - 1, p.y + p.len);
+          ctx.strokeStyle = `rgba(147, 210, 255, ${p.opacity})`;
+          ctx.lineWidth = p.width;
+          ctx.stroke();
+          p.y += p.speed;
+          if (p.y > H() + p.len) {
+            p.y = -p.len;
+            p.x = Math.random() * W();
+          }
+        } else if (p.type === "snowflake") {
+          p.phase += 0.02;
+          p.rotation += p.rotSpeed;
+          const drift = Math.sin(p.phase) * p.drift;
+          p.x += drift;
+          p.y += p.speed;
+          if (p.y > H() + 10) { p.y = -10; p.x = Math.random() * W(); }
+          if (p.x < 0) p.x = W();
+          if (p.x > W()) p.x = 0;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.strokeStyle = `rgba(220, 240, 255, ${p.opacity})`;
+          ctx.lineWidth = 1;
+          for (let arm = 0; arm < 6; arm++) {
+            ctx.save();
+            ctx.rotate((arm * Math.PI) / 3);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, p.size);
+            ctx.moveTo(0, p.size * 0.4);
+            ctx.lineTo(p.size * 0.2, p.size * 0.6);
+            ctx.moveTo(0, p.size * 0.4);
+            ctx.lineTo(-p.size * 0.2, p.size * 0.6);
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.restore();
+        } else if (p.type === "sparkle") {
+          p.phase += 0.03;
+          p.y -= p.speed;
+          p.x += p.drift;
+          const twinkle = Math.abs(Math.sin(p.phase)) * p.opacity;
+          if (p.y < -5) { p.y = H() + 5; p.x = Math.random() * W(); }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 235, 150, ${twinkle})`;
+          ctx.fill();
+        } else if (p.type === "mote") {
+          p.phase += 0.01;
+          p.x += p.speed;
+          if (p.x > W()) p.x = 0;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(180,200,220,${p.opacity + 0.1 * Math.sin(p.phase)})`;
+          ctx.fill();
+        } else if (p.type === "mist" || p.type === "haze") {
+          p.phase += 0.005;
+          p.x += p.speed;
+          if (p.x > W() + p.radius) p.x = -p.radius;
+          const color = condition === "Haze"
+            ? `rgba(200,160,80,${p.opacity + 0.015 * Math.sin(p.phase)})`
+            : `rgba(200,210,220,${p.opacity + 0.015 * Math.sin(p.phase)})`;
+          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+          grad.addColorStop(0, color);
+          grad.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      window.removeEventListener("resize", resize);
+    };
+  }, [condition]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 1 }}
+    />
+  );
+};
+
+// ─── Weather icon map ─────────────────────────────────────────────────────────
+const ICON_MAP = {
+  Clear: { Icon: WiDaySunny, color: "#fbbf24" },
+  Clouds: { Icon: WiCloudy, color: "#94a3b8" },
+  Rain: { Icon: WiRain, color: "#60a5fa" },
+  Drizzle: { Icon: WiRain, color: "#93c5fd" },
+  Snow: { Icon: WiSnow, color: "#e0f2fe" },
+  Thunderstorm: { Icon: WiThunderstorm, color: "#a78bfa" },
+  Mist: { Icon: WiFog, color: "#cbd5e1" },
+  Fog: { Icon: WiFog, color: "#cbd5e1" },
+  Haze: { Icon: WiDayHaze, color: "#fcd34d" },
+};
+const getIcon = (condition) => ICON_MAP[condition] || ICON_MAP["Clear"];
+
+// ─── Detail Card ──────────────────────────────────────────────────────────────
+const DetailCard = ({ icon, label, value, accent }) => (
+  <div
+    className="rounded-2xl p-4 transition-all duration-300"
+    style={{
+      background: "rgba(255,255,255,0.06)",
+      border: "1px solid rgba(255,255,255,0.1)",
+      backdropFilter: "blur(10px)",
+    }}
+  >
+    <div className="flex items-center gap-2 mb-1" style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.78rem", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+      <span style={{ color: accent }}>{icon}</span>
+      {label}
+    </div>
+    <div className="text-white font-semibold text-xl">{value}</div>
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const WeatherCheck = () => {
-  // State management
   const [searchQuery, setSearchQuery] = useState("");
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [particles, setParticles] = useState([]);
+  const [mounted, setMounted] = useState(false);
+  const [cardVisible, setCardVisible] = useState(false);
+
   const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
 
-  // Fetch weather data
-  const getWeather = async (location) => {
-    if (!location) return; // Don't fetch if no location is provided
+  useEffect(() => {
+    setTimeout(() => setMounted(true), 50);
+  }, []);
 
+  const formatTime = (ts) =>
+    new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const getWeather = async (location) => {
+    if (!location) return;
     setLoading(true);
     setError(null);
-
+    setCardVisible(false);
     try {
-      const response = await fetch(
+      const res = await fetch(
         `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${API_KEY}`
       );
-
-      if (!response.ok)
-        throw new Error("Location not found. Please try another city.");
-
-      const data = await response.json();
-
-      // Format the weather data
-      const formattedData = {
+      if (!res.ok) throw new Error("City not found — try another name.");
+      const data = await res.json();
+      setWeather({
         city: data.name,
         country: data.sys.country,
         temp: Math.round(data.main.temp),
         condition: data.weather[0].main,
+        description: data.weather[0].description,
         humidity: data.main.humidity,
         wind: (data.wind.speed * 3.6).toFixed(1),
         sunrise: formatTime(data.sys.sunrise),
         sunset: formatTime(data.sys.sunset),
         feelsLike: Math.round(data.main.feels_like),
-      };
-
-      setWeather(formattedData);
+      });
+      setTimeout(() => setCardVisible(true), 80);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -68,345 +464,450 @@ const WeatherCheck = () => {
     }
   };
 
-  // Helper function to format time
-  const formatTime = (timestamp) => {
-    return new Date(timestamp * 1000).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // Handle search form submission
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      getWeather(searchQuery);
-    }
+    if (searchQuery.trim()) getWeather(searchQuery.trim());
   };
 
-  // Get the appropriate weather icon
-  const getWeatherIcon = () => {
-    const matchedIcon =
-      weatherIcons.find((icon) => icon.condition === weather?.condition) ||
-      weatherIcons[0];
-    return matchedIcon.icon;
-  };
-
-  // Generate weather particles
-  const generateParticles = () => {
-    const newParticles = Array.from({ length: 40 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 4 + 2,
-      opacity: Math.random() * 0.5 + 0.2,
-      duration: Math.random() * 15 + 15,
-      delay: Math.random() * 10,
-      type: Math.random() > 0.3 ? "drop" : "flake",
-    }));
-    setParticles(newParticles);
-  };
-
-  // Initial particle generation
-  useEffect(() => {
-    generateParticles();
-  }, []);
-
-  const WeatherIcon = getWeatherIcon();
-  const iconColor =
-    weatherIcons.find((icon) => icon.condition === weather?.condition)?.color ||
-    "text-yellow-400";
+  const theme = weather ? getTheme(weather.condition) : getTheme("Clear");
+  const { Icon, color: iconColor } = weather ? getIcon(weather.condition) : getIcon("Clear");
+  const condition = weather?.condition || "Clear";
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900">
-      {/* Enhanced Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Smooth gradient animation */}
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+        * { box-sizing: border-box; }
+
+        body {
+          margin: 0;
+          font-family: 'Outfit', sans-serif;
+        }
+
+        .weather-root {
+          min-height: 100vh;
+          position: relative;
+          overflow: hidden;
+          transition: background 1.8s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        .bg-layer {
+          position: absolute;
+          inset: 0;
+          transition: opacity 1.8s ease;
+        }
+
+        /* Noise texture overlay */
+        .noise-layer {
+          position: absolute;
+          inset: 0;
+          opacity: 0.04;
+          z-index: 2;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+          pointer-events: none;
+        }
+
+        .content-layer {
+          position: relative;
+          z-index: 10;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem 1rem;
+        }
+
+        /* Header animation */
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-32px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.92) translateY(20px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .anim-slide-down {
+          animation: slideDown 0.9s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        }
+        .anim-fade-up {
+          animation: fadeUp 0.8s ease forwards;
+          opacity: 0;
+        }
+        .anim-scale-in {
+          animation: scaleIn 0.7s cubic-bezier(0.34,1.2,0.64,1) forwards;
+        }
+
+        /* Search bar */
+        .search-wrap {
+          position: relative;
+          width: 100%;
+          max-width: 440px;
+          margin: 0 auto;
+        }
+        .search-input {
+          width: 100%;
+          background: rgba(255,255,255,0.1);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255,255,255,0.18);
+          border-radius: 50px;
+          padding: 1rem 4rem 1rem 1.5rem;
+          color: white;
+          font-size: 1rem;
+          font-family: 'Outfit', sans-serif;
+          font-weight: 400;
+          outline: none;
+          transition: border 0.3s, background 0.3s, box-shadow 0.3s;
+        }
+        .search-input::placeholder { color: rgba(255,255,255,0.45); }
+        .search-input:focus {
+          border-color: rgba(255,255,255,0.45);
+          background: rgba(255,255,255,0.15);
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.08);
+        }
+        .search-btn {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          border: none;
+          border-radius: 50%;
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s;
+        }
+        .search-btn:hover { transform: translateY(-50%) scale(1.12); }
+        .search-btn:active { transform: translateY(-50%) scale(0.95); }
+
+        /* Weather card */
+        .weather-card {
+          width: 100%;
+          max-width: 460px;
+          border-radius: 28px;
+          padding: 2rem;
+          background: rgba(255,255,255,0.09);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255,255,255,0.15);
+          box-shadow:
+            0 32px 80px rgba(0,0,0,0.35),
+            0 0 0 1px rgba(255,255,255,0.05) inset,
+            0 1px 0 rgba(255,255,255,0.15) inset;
+          transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        /* Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+          width: 52px; height: 52px;
+          border-radius: 50%;
+          border: 3px solid rgba(255,255,255,0.12);
+          border-top-color: white;
+          animation: spin 0.8s linear infinite;
+        }
+
+        /* Error shake */
+        @keyframes shake {
+          0%,100% { transform: translateX(0); }
+          20%,60% { transform: translateX(-6px); }
+          40%,80% { transform: translateX(6px); }
+        }
+        .shake { animation: shake 0.4s ease; }
+
+        /* Temperature pulse */
+        @keyframes tempPulse {
+          0%,100% { opacity: 1; }
+          50% { opacity: 0.85; }
+        }
+
+        /* Condition badge */
+        .condition-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px;
+          border-radius: 50px;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.15);
+          font-size: 0.8rem;
+          font-weight: 500;
+          letter-spacing: 0.05em;
+          color: rgba(255,255,255,0.85);
+          text-transform: capitalize;
+        }
+
+        /* Bottom horizon glow */
+        .horizon-glow {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 220px;
+          pointer-events: none;
+          z-index: 3;
+          transition: background 1.8s ease;
+        }
+
+        /* Grid detail cards */
+        .detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-top: 1.5rem;
+        }
+
+        /* Logo text */
+        .logo-word {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 800;
+          font-size: clamp(2.4rem, 6vw, 3.5rem);
+          color: white;
+          letter-spacing: -0.02em;
+          line-height: 1;
+        }
+
+        .divider {
+          width: 40px;
+          height: 2px;
+          margin: 1rem auto;
+          border-radius: 2px;
+          background: rgba(255,255,255,0.3);
+        }
+
+        @keyframes iconFloat {
+          0%,100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-8px) rotate(3deg); }
+        }
+        .icon-float { animation: iconFloat 4s ease-in-out infinite; }
+
+        @keyframes shimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+      `}</style>
+
+      <div
+        className="weather-root"
+        style={{
+          background:
+            condition === "Clear"
+              ? "linear-gradient(160deg, #0c1e35 0%, #1a4a7a 50%, #c2440a 100%)"
+              : condition === "Clouds"
+              ? "linear-gradient(160deg, #1e2a3a 0%, #3d5166 55%, #6b7f94 100%)"
+              : condition === "Rain" || condition === "Drizzle"
+              ? "linear-gradient(160deg, #0d1b2a 0%, #1a3349 50%, #2c4e6e 100%)"
+              : condition === "Snow"
+              ? "linear-gradient(160deg, #1a2740 0%, #2d3f5a 50%, #8ba7c2 100%)"
+              : condition === "Thunderstorm"
+              ? "linear-gradient(160deg, #070712 0%, #1a1a2e 50%, #2d1b4e 100%)"
+              : condition === "Mist" || condition === "Fog"
+              ? "linear-gradient(160deg, #1a2033 0%, #2d3a4a 55%, #5a6a7a 100%)"
+              : condition === "Haze"
+              ? "linear-gradient(160deg, #2a1f0f 0%, #3d3020 55%, #7a6040 100%)"
+              : "linear-gradient(160deg, #0c1e35 0%, #1a4a7a 50%, #c2440a 100%)",
+        }}
+      >
+        {/* Noise texture */}
+        <div className="noise-layer" />
+
+        {/* Particle canvas */}
+        <ParticleCanvas condition={condition} />
+
+        {/* Horizon glow */}
         <div
-          className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20"
+          className="horizon-glow"
           style={{
-            animation: "gradientShift 18s ease infinite",
-            backgroundSize: "200% 200%",
+            background:
+              condition === "Clear"
+                ? "linear-gradient(to top, rgba(249,115,22,0.25), transparent)"
+                : condition === "Thunderstorm"
+                ? "linear-gradient(to top, rgba(109,40,217,0.3), transparent)"
+                : condition === "Snow"
+                ? "linear-gradient(to top, rgba(186,230,253,0.15), transparent)"
+                : condition === "Haze"
+                ? "linear-gradient(to top, rgba(251,191,36,0.2), transparent)"
+                : "linear-gradient(to top, rgba(255,255,255,0.05), transparent)",
           }}
         />
 
-        {/* Floating particles */}
-        {Array.from({ length: 30 }).map((_, i) => (
+        {/* Content */}
+        <div className="content-layer">
+
+          {/* Header */}
           <div
-            key={`particle-${i}`}
-            className="absolute rounded-full bg-white/20 animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              width: `${Math.random() * 3 + 1}px`,
-              height: `${Math.random() * 3 + 1}px`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${Math.random() * 20 + 10}s`,
-              opacity: Math.random() * 0.5 + 0.1,
-            }}
-            aria-hidden="true"
-          />
-        ))}
-      </div>
+            className={`text-center mb-10 ${mounted ? "anim-slide-down" : ""}`}
+            style={{ opacity: mounted ? undefined : 0 }}
+          >
+            <div className="logo-word">
+              Weather<span style={{ color: theme.accent }}>Vue</span>
+            </div>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.95rem", marginTop: "0.5rem", letterSpacing: "0.05em" }}>
+              Real-time atmospheric intelligence
+            </p>
+            <div className="divider" />
 
-      {/* Weather Particles (Rain/Snow) */}
-      {particles.map((particle) => (
-        <div
-          key={particle.id}
-          className={`absolute rounded-full ${
-            particle.type === "drop" ? "bg-blue-300/70" : "bg-white/80"
-          }`}
-          style={{
-            left: `${particle.x}%`,
-            top: `${particle.y}%`,
-            width: `${particle.size}px`,
-            height: `${particle.size}px`,
-            opacity: particle.opacity,
-            animation: `fall ${particle.duration}s linear infinite`,
-            animationDelay: `${particle.delay}s`,
-          }}
-        />
-      ))}
-
-      {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-12">
-        {/* Search Section with enhanced styling */}
-        <div className="w-full max-w-2xl text-center mb-12 animate-fade-in-down">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 tracking-tight">
-            Weather<span className="text-teal-300">Vue</span>
-          </h1>
-          <p className="text-xl md:text-2xl text-white/80 mb-8 font-light">
-            Real-Time Weather Intelligence & Forecasting
-          </p>
-
-          <form onSubmit={handleSearch} className="w-full max-w-md mx-auto">
-            <div className="relative">
+            {/* Search */}
+            <form onSubmit={handleSearch} className="search-wrap" style={{ marginTop: "1.5rem" }}>
               <input
+                className="search-input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter city name..."
-                className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-full py-4 px-6 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent text-lg transition-all duration-300 hover:bg-white/15"
+                placeholder="Search a city…"
               />
               <button
                 type="submit"
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-teal-500/80 hover:bg-teal-400/90 rounded-full p-3 transition-all duration-300 hover:scale-110"
+                className="search-btn"
                 disabled={loading}
+                style={{ background: theme.accent, opacity: loading ? 0.6 : 1 }}
               >
-                <IoSearchSharp className="w-6 h-6 text-white" />
+                <IoSearchSharp size={18} color="#000" />
               </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-xl w-full max-w-md flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-16 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xl text-white/90">Fetching weather data...</p>
+            </form>
           </div>
-        )}
 
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-500/10 backdrop-blur-lg rounded-2xl p-8 border border-red-300/20 shadow-xl w-full max-w-md animate-shake">
-            <p className="text-xl text-red-100 text-center">{error}</p>
-          </div>
-        )}
-
-        {/* Weather Display */}
-        {weather && !loading && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-xl w-full max-w-md transform transition-all duration-500 hover:scale-[1.02]">
-            {/* Location and Date */}
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-3xl font-bold text-white">
-                  {weather.city}, {weather.country}
-                </h2>
-                <p className="text-white/80 text-lg">
-                  {new Date().toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-              <div className="flex items-center text-white/80 bg-white/10 rounded-full px-3 py-1">
-                <IoLocationSharp className="mr-2 text-teal-300" />
-                <span className="font-medium">{weather.condition}</span>
-              </div>
+          {/* Loading */}
+          {loading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+              <div className="spinner" />
+              <p style={{ color: "rgba(255,255,255,0.7)", fontFamily: "'Space Mono', monospace", fontSize: "0.85rem" }}>
+                fetching weather…
+              </p>
             </div>
+          )}
 
-            {/* Temperature */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center">
-                <div className="mr-4">
-                  <WeatherIcon
-                    className={`w-24 h-24 ${iconColor} drop-shadow-lg`}
-                  />
-                </div>
+          {/* Error */}
+          {error && !loading && (
+            <div
+              className="shake weather-card"
+              style={{
+                maxWidth: 420,
+                background: "rgba(239,68,68,0.12)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                textAlign: "center",
+                padding: "1.5rem 2rem",
+              }}
+            >
+              <p style={{ color: "#fca5a5", margin: 0 }}>{error}</p>
+            </div>
+          )}
+
+          {/* Weather card */}
+          {weather && !loading && (
+            <div
+              className="weather-card anim-scale-in"
+              style={{
+                opacity: cardVisible ? 1 : 0,
+                transform: cardVisible ? "scale(1) translateY(0)" : "scale(0.94) translateY(16px)",
+              }}
+            >
+              {/* Top row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
                 <div>
-                  <div className="text-6xl font-bold text-white">
-                    {weather.temp}°C
-                  </div>
-                  <div className="text-white/80 text-lg">
-                    Feels like {weather.feelsLike}°C
+                  <h2 style={{ color: "white", margin: 0, fontSize: "1.6rem", fontWeight: 700, lineHeight: 1.1 }}>
+                    {weather.city}
+                  </h2>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "4px", color: "rgba(255,255,255,0.55)", fontSize: "0.9rem" }}>
+                    <IoLocationSharp style={{ color: theme.accent }} size={14} />
+                    {weather.country}
                   </div>
                 </div>
+                <div className="condition-badge">
+                  {weather.description}
+                </div>
+              </div>
+
+              {/* Temp + icon */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                <div>
+                  <div style={{
+                    fontSize: "clamp(3.5rem, 10vw, 5rem)",
+                    fontWeight: 800,
+                    color: "white",
+                    lineHeight: 1,
+                    fontFamily: "'Outfit', sans-serif",
+                    letterSpacing: "-0.03em",
+                  }}>
+                    {weather.temp}°
+                    <span style={{ fontSize: "2rem", color: "rgba(255,255,255,0.5)", fontWeight: 400 }}>C</span>
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.9rem", marginTop: "4px" }}>
+                    Feels like <span style={{ color: "rgba(255,255,255,0.75)" }}>{weather.feelsLike}°C</span>
+                  </div>
+                </div>
+                <div className="icon-float">
+                  <Icon style={{ fontSize: "6rem", color: iconColor, filter: `drop-shadow(0 0 20px ${iconColor}88)` }} />
+                </div>
+              </div>
+
+              {/* Thin separator */}
+              <div style={{ height: "1px", background: "rgba(255,255,255,0.1)", margin: "1.25rem 0" }} />
+
+              {/* Detail grid */}
+              <div className="detail-grid">
+                <DetailCard
+                  icon={<WiHumidity size={22} />}
+                  label="Humidity"
+                  value={`${weather.humidity}%`}
+                  accent={theme.accent}
+                />
+                <DetailCard
+                  icon={<WiStrongWind size={22} />}
+                  label="Wind"
+                  value={`${weather.wind} km/h`}
+                  accent={theme.accent}
+                />
+                <DetailCard
+                  icon={<WiSunrise size={22} />}
+                  label="Sunrise"
+                  value={weather.sunrise}
+                  accent={theme.accent}
+                />
+                <DetailCard
+                  icon={<WiSunset size={22} />}
+                  label="Sunset"
+                  value={weather.sunset}
+                  accent={theme.accent}
+                />
+              </div>
+
+              {/* Date footer */}
+              <div style={{ textAlign: "center", marginTop: "1.25rem", color: "rgba(255,255,255,0.3)", fontSize: "0.78rem", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace" }}>
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               </div>
             </div>
+          )}
 
-            {/* Weather Details */}
-            <div className="grid grid-cols-2 gap-4">
-              <WeatherDetail
-                icon={<WiHumidity className="text-2xl text-blue-300" />}
-                label="Humidity"
-                value={`${weather.humidity}%`}
-              />
-              <WeatherDetail
-                icon={<WiStrongWind className="text-2xl text-teal-300" />}
-                label="Wind Speed"
-                value={`${weather.wind} km/h`}
-              />
-              <WeatherDetail
-                icon={<WiSunrise className="text-2xl text-yellow-300" />}
-                label="Sunrise"
-                value={weather.sunrise}
-              />
-              <WeatherDetail
-                icon={<WiSunset className="text-2xl text-orange-300" />}
-                label="Sunset"
-                value={weather.sunset}
-              />
+          {/* Empty state */}
+          {!weather && !loading && !error && (
+            <div
+              className={`weather-card ${mounted ? "anim-fade-up" : ""}`}
+              style={{ opacity: mounted ? undefined : 0, textAlign: "center", animationDelay: "0.3s" }}
+            >
+              <div className="icon-float" style={{ display: "inline-block", marginBottom: "1rem" }}>
+                <WiDaySunny style={{ fontSize: "5rem", color: "#fbbf24", filter: "drop-shadow(0 0 20px rgba(251,191,36,0.6))" }} />
+              </div>
+              <h3 style={{ color: "white", margin: "0 0 0.5rem", fontSize: "1.3rem", fontWeight: 600 }}>Welcome to WeatherVue</h3>
+              <p style={{ color: "rgba(255,255,255,0.5)", margin: 0, fontSize: "0.95rem", lineHeight: 1.6 }}>
+                Search any city above to see live conditions, feels-like temperature, wind, humidity, and sun times.
+              </p>
             </div>
-          </div>
-        )}
-
-        {/* Initial State - When no search has been made */}
-        {!weather && !loading && !error && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-xl w-full max-w-md text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Welcome to WeatherVue
-            </h2>
-            <p className="text-white/80 text-lg mb-6">
-              Enter a city name above to get current weather conditions and
-              forecasts
-            </p>
-            <div className="flex justify-center">
-              <WiDaySunny className="text-6xl text-yellow-300 animate-pulse" />
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      {/* Bottom Wave Animation */}
-      <div className="absolute bottom-0 left-0 w-full overflow-hidden">
-        <svg
-          className="relative block w-full h-20"
-          viewBox="0 0 1200 120"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z"
-            opacity=".25"
-            className="fill-blue-500/30"
-          />
-          <path
-            d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z"
-            opacity=".5"
-            className="fill-teal-500/30"
-          />
-          <path
-            d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z"
-            className="fill-blue-500/40"
-          />
-        </svg>
-      </div>
-
-      {/* CSS Animations */}
-      <style jsx="true">{`
-        @keyframes gradientShift {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-        @keyframes float {
-          0% {
-            transform: translateY(0) translateX(0);
-          }
-          50% {
-            transform: translateY(-20px) translateX(10px);
-          }
-          100% {
-            transform: translateY(0) translateX(0);
-          }
-        }
-        @keyframes fall {
-          0% {
-            transform: translateY(-100vh);
-          }
-          100% {
-            transform: translateY(100vh);
-          }
-        }
-        @keyframes fadeInDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes shake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          10%,
-          30%,
-          50%,
-          70%,
-          90% {
-            transform: translateX(-5px);
-          }
-          20%,
-          40%,
-          60%,
-          80% {
-            transform: translateX(5px);
-          }
-        }
-        .animate-fade-in-down {
-          animation: fadeInDown 0.8s ease-out forwards;
-        }
-        .animate-float {
-          animation: float 15s ease-in-out infinite;
-        }
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
-
-// Enhanced WeatherDetail component
-const WeatherDetail = ({ icon, label, value }) => (
-  <div className="bg-white/5 rounded-lg p-4 hover:bg-white/10 transition-all duration-300">
-    <div className="flex items-center text-white/80 mb-1">
-      <span className="mr-2">{icon}</span>
-      <span className="text-sm font-medium">{label}</span>
-    </div>
-    <div className="text-2xl font-semibold text-white">{value}</div>
-  </div>
-);
 
 export default WeatherCheck;
